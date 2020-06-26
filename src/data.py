@@ -15,7 +15,10 @@ class IMDBDataset:
     def __len__(self):
         return len(self.text)
     def __getitem__(self, idx):
-        return (self.input[idx], self.mask[idx], self.target[idx])
+        return (torch.tensor(self.input[idx]), 
+                torch.tensor(self.mask[idx]), 
+                torch.tensor(self.target[idx])
+                )
     def build(self):
         for _, tx in enumerate(self.text):
             input = "[CLS]"+ str(tx) + "[SEP]"
