@@ -1,5 +1,7 @@
-MAXLEN = 128
+from transformers import BertTokenizer, BertModel
+MAX_LENGTH = 128
+TOKENIZER = BertTokenizer.from_pretrained('bert-base-uncased')
 TRAIN_BATCH_SIZE = 8
-VALID_BATCH_SIZE=4
-lr = 3e-4
-DATASET_PATH = "~/input/imdb_master.csv"
+VALID_BATCH_SIZE = 4
+MODEL = BertModel.from_pretrained('bert-base-uncased')
+NUM_EPOCHS=2
