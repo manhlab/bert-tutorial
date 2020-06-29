@@ -4,7 +4,9 @@ import numpy as np
 import random
 from torch.utils.data import Dataset
 from sklearn.model_selection import StratifiedKFold
-
+from torch import nn
+import math
+from torch.nn import functional as F
 
 class AverageMeter(object):
     """Computes and stores the average and current value"""
@@ -111,3 +113,42 @@ class EarlyStopping:
             else:
                 torch.save(model.state_dict(), model_path)
         self.val_score = epoch_score
+
+#Label Smooth CrossEntropy LOSS
+class LabelSmoothedCrossEntropyLoss(nn.Module):
+    """this loss performs label smoothing to compute cross-entropy with soft labels, when smoothing=0.0, this
+    is the same as torch.nn.CrossEntropyLoss"""
+
+    def __init__(self, n_classes, smoothing=0.0, dim=-1):
+        super().__init__()
+        self.confidence = 1.0 - smoothing
+        self.smoothing = smoothing
+        self.n_classes = n_classes
+        self.dim = dim
+
+    def forward(self, pred, target):
+        pred = pred.log_softmax(dim=self.dim)
+        with torch.no_grad():
+            true_dist = torch.zeros_like(pred)
+            true_dist.fill_(self.smoothing / (self.n_classes - 1))
+            true_dist.scatter_(1, target.data.unsqueeze(1), self.confidence)
+
+        return torch.mean(torch.sum(-true_dist * pred, dim=self.dim))
+
+# from https://github.com/digantamisra98/Mish/blob/b5f006660ac0b4c46e2c6958ad0301d7f9c59651/Mish/Torch/mish.py
+@torch.jit.script
+def mish(input):
+    return input * torch.tanh(F.softplus(input))
+def gelu(x):
+    "Implementation of the gelu activation function by Hugging Face"
+    return x * 0.5 * (1.0 + torch.erf(x / math.sqrt(2.0)))
+
+class Mish(nn.Module):
+    def forward(self, input):
+        return mish(input)
+
+
+
+class GELU(nn.Module):
+    def forward(self, input):
+        return gelu(input)
