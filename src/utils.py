@@ -8,6 +8,7 @@ from torch import nn
 import math
 from torch.nn import functional as F
 
+
 class AverageMeter(object):
     """Computes and stores the average and current value"""
 
@@ -114,7 +115,8 @@ class EarlyStopping:
                 torch.save(model.state_dict(), model_path)
         self.val_score = epoch_score
 
-#Label Smooth CrossEntropy LOSS
+
+# Label Smooth CrossEntropy LOSS
 class LabelSmoothedCrossEntropyLoss(nn.Module):
     """this loss performs label smoothing to compute cross-entropy with soft labels, when smoothing=0.0, this
     is the same as torch.nn.CrossEntropyLoss"""
@@ -135,20 +137,55 @@ class LabelSmoothedCrossEntropyLoss(nn.Module):
 
         return torch.mean(torch.sum(-true_dist * pred, dim=self.dim))
 
+
 # from https://github.com/digantamisra98/Mish/blob/b5f006660ac0b4c46e2c6958ad0301d7f9c59651/Mish/Torch/mish.py
 @torch.jit.script
 def mish(input):
     return input * torch.tanh(F.softplus(input))
+
+
 def gelu(x):
     "Implementation of the gelu activation function by Hugging Face"
     return x * 0.5 * (1.0 + torch.erf(x / math.sqrt(2.0)))
+
 
 class Mish(nn.Module):
     def forward(self, input):
         return mish(input)
 
 
+###############GELU ACTIVATION FUNCTION###################
+##########################################################
+
 
 class GELU(nn.Module):
     def forward(self, input):
         return gelu(input)
+
+
+def clean_text(text, lang="en"):
+    text = str(text)
+    text = re.sub(r'[0-9"]', "", text)
+    text = re.sub(r"#[\S]+\b", "", text)
+    text = re.sub(r"@[\S]+\b", "", text)
+    text = re.sub(r"https?\S+", "", text)
+    text = re.sub(r"\s+", " ", text)
+    text = exclude_duplicate_sentences(text, lang)
+    return text.strip()
+
+
+###############FOCAL LOSS FOR UNBALANCE MULTILABEL################
+##################################################################
+
+from tensorflow.keras import backend as K
+
+
+def focal_loss(gamma=1.5, alpha=0.25):
+    def focal_loss_fixed(y_true, y_pred):
+        pt_1 = tf.where(tf.equal(y_true, 1), y_pred, tf.ones_like(y_pred))
+        pt_0 = tf.where(tf.equal(y_true, 0), y_pred, tf.zeros_like(y_pred))
+        return -K.mean(alpha * K.pow(1.0 - pt_1, gamma) * K.log(pt_1)) - K.mean(
+            (1 - alpha) * K.pow(pt_0, gamma) * K.log(1.0 - pt_0)
+        )
+
+    return focal_loss_fixed
