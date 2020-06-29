@@ -3,7 +3,7 @@ import torch
 import numpy as np
 import random
 from torch.utils.data import Dataset
-from sklearn.model_selection import KFold
+from sklearn.model_selection import StratifiedKFold
 
 
 class AverageMeter(object):
@@ -31,7 +31,7 @@ def loss_fn(ypred, label):
 
 def kfold_df(train_df, fold=5):
     out = []
-    kfold = KFold(n_splits=fold, shuffle=True, random_state=42)
+    kfold = StratifiedKFold(n_splits=fold, shuffle=True, random_state=42)
     for fold, (train_idx, valid_idx) in enumerate(kfold.split(train_df)):
         out.append((train_df.iloc[train_idx], train_df.iloc[valid_idx]))
     return out
