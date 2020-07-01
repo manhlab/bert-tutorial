@@ -2,11 +2,11 @@ from torch.nn import BCELoss
 import torch
 import numpy as np
 import random
-from torch.utils.data import Dataset
 from sklearn.model_selection import StratifiedKFold
 from torch import nn
 import math
 from torch.nn import functional as F
+import tensoflow as tf
 
 
 class AverageMeter(object):
@@ -49,6 +49,7 @@ def seed_all(seed):
 
 
 # /------------Early Stopping-----------------/#
+################################################
 
 try:
     import torch_xla.core.xla_model as xm
@@ -163,6 +164,9 @@ class GELU(nn.Module):
         return gelu(input)
 
 
+import re
+
+
 def clean_text(text, lang="en"):
     text = str(text)
     text = re.sub(r'[0-9"]', "", text)
@@ -170,11 +174,11 @@ def clean_text(text, lang="en"):
     text = re.sub(r"@[\S]+\b", "", text)
     text = re.sub(r"https?\S+", "", text)
     text = re.sub(r"\s+", " ", text)
-    text = exclude_duplicate_sentences(text, lang)
+    # text = exclude_duplicate_sentences(text, lang)
     return text.strip()
 
 
-###############FOCAL LOSS FOR UNBALANCE MULTILABEL################
+# ##############FOCAL LOSS FOR UNBALANCE MULTILABEL################
 ##################################################################
 
 from tensorflow.keras import backend as K
@@ -189,3 +193,107 @@ def focal_loss(gamma=1.5, alpha=0.25):
         )
 
     return focal_loss_fixed
+
+
+""" binary focal loss with label_smoothing """
+import tensorflow as tf
+from tensorflow.keras import backend as K
+
+
+def focal_loss_label_smothing(gamma=2.0, pos_weight=1, label_smoothing=0.05):
+    """ binary focal loss with label_smoothing """
+
+    def binary_focal_loss(labels, p):
+        """ bfl clojure """
+        labels = tf.dtypes.cast(labels, dtype=p.dtype)
+        if label_smoothing is not None:
+            labels = (1 - label_smoothing) * labels + label_smoothing * 0.5
+
+        # Predicted probabilities for the negative class
+        q = 1 - p
+
+        # For numerical stability (so we don't inadvertently take the log of 0)
+        p = tf.math.maximum(p, K.epsilon())
+        q = tf.math.maximum(q, K.epsilon())
+
+        # Loss for the positive examples
+        pos_loss = -(q ** gamma) * tf.math.log(p) * pos_weight
+
+        # Loss for the negative examples
+        neg_loss = -(p ** gamma) * tf.math.log(q)
+
+        # Combine loss terms
+        loss = labels * pos_loss + (1 - labels) * neg_loss
+
+        return loss
+
+    return binary_focal_loss
+
+
+from sklearn import metrics
+
+
+def roc_auc(predictions, target):
+    """
+    This methods returns the AUC Score when given the Predictions
+    and Labels
+    """
+
+    fpr, tpr, thresholds = metrics.roc_curve(target, predictions)
+    roc_auc = metrics.auc(fpr, tpr)
+    return roc_auc
+
+
+##### FAST TENSOR LOADER #########
+################################
+import torch
+
+
+class FastTensorDataLoader:
+    """
+    A DataLoader-like object for a set of tensors that can be much faster than\
+    TensorDataset + DataLoader because dataloader grabs individual indices of\
+    the dataset and calls cat (slow).\
+    Source: https://discuss.pytorch.org/t/dataloader-much-slower-than-manual-batching/27014/6\
+    """
+
+    def __init__(self, *tensors, batch_size=32, shuffle=False):
+        """
+        Initialize a FastTensorDataLoader.
+
+        :param *tensors: tensors to store. Must have the same length @ dim 0.
+        :param batch_size: batch size to load.
+        :param shuffle: if True, shuffle the data *in-place* whenever an
+            iterator is created out of this object.
+
+        :returns: A FastTensorDataLoader.
+        """
+        assert all(t.shape[0] == tensors[0].shape[0] for t in tensors)
+        self.tensors = tensors
+
+        self.dataset_len = self.tensors[0].shape[0]
+        self.batch_size = batch_size
+        self.shuffle = shuffle
+
+        # Calculate # batches
+        n_batches, remainder = divmod(self.dataset_len, self.batch_size)
+        if remainder > 0:
+            n_batches += 1
+        self.n_batches = n_batches
+
+    def __iter__(self):
+        if self.shuffle:
+            r = torch.randperm(self.dataset_len)
+            self.tensors = [t[r] for t in self.tensors]
+        self.i = 0
+        return self
+
+    def __next__(self):
+        if self.i >= self.dataset_len:
+            raise StopIteration
+        batch = tuple(t[self.i : self.i + self.batch_size] for t in self.tensors)
+        self.i += self.batch_size
+        return batch
+
+    def __len__(self):
+        return self.n_batches
