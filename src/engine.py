@@ -1,27 +1,17 @@
 import torch
-import config
-import pandas as pd
 from tqdm import tqdm
 import numpy as np
-import random
-from transformers.optimization import get_linear_schedule_with_warmup
-from model import BertUncasedModel
-from utils import AverageMeter, kfold_df, seed_all
-from sklearn.model_selection import KFold
 from sklearn.metrics import classification_report
-from data import SegmentDataset
-from torch.utils.data import DataLoader
-from torch.optim import AdamW
-from utils import EarlyStopping
-
+from utils import EarlyStopping,AverageMeter
+import config
 
 def train_fn(model, train_loader, optimizer, scheduler, device):
     model.to(device)
     es = EarlyStopping(patience=2, mode="max")
-    for epochs in range(config.NUM_EPOCHS):
+    for _ in range(config.NUM_EPOCHS):
         losses = AverageMeter()
         tk0 = tqdm(train_loader, total=len(train_loader))
-        for step, batch in enumerate(tk0):
+        for _, batch in enumerate(tk0):
             ids, mask, label = batch
             ids = ids.to(device)
             mask = mask.to(device)

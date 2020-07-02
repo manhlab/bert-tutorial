@@ -1,7 +1,4 @@
-from transformers import BertTokenizer
-import pandas as pd
 import config
-import numpy as np
 import torch
 from keras.utils import to_categorical
 
