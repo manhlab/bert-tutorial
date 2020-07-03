@@ -1,6 +1,6 @@
-import config
 import torch
 from keras.utils import to_categorical
+import config
 
 
 class SegmentDataset:
@@ -18,9 +18,9 @@ class SegmentDataset:
         return len(self.text)
 
     def build(self):
-        for id in range(len(self.text)):
+        for idx in range(len(self.text)):
             token = self.tokenizer.encode_plus(
-                self.text[id],
+                self.text[idx],
                 add_special_tokens=True,
                 pad_to_max_length=True,
                 max_length=config.MAX_LENGTH,
